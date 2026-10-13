@@ -13,6 +13,10 @@ spring:
               uri: lb://AUTH-SERVICE
               predicates:
                 - Path=/auth/**
+            - id: claim-service
+              uri: lb://CLAIM-SERVICE
+              predicates:
+                - Path=/claims/**
             - id: report-service
               uri: lb://REPORT-SERVICE
               predicates:
@@ -21,10 +25,6 @@ spring:
               uri: lb://MATCHING-SERVICE
               predicates:
                 - Path=/matches/**
-            - id: claim-service
-              uri: lb://CLAIM-SERVICE
-              predicates:
-                - Path=/claims/**
             - id: notification-service
               uri: lb://NOTIFICATION-SERVICE
               predicates:
@@ -33,7 +33,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
 
 jwt:
   secret: ${JWT_SECRET}
