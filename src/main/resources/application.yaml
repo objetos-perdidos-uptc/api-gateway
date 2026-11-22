@@ -1,0 +1,74 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Server-Side: único punto de entrada público. Los clientes nunca ven IPs ni puertos internos.
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 10s
+          # Failover ante nodos caídos: solo GET (idempotente). Con lb:// el reintento
+          # cae en la siguiente instancia del servicio (Round Robin).
+          default-filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                backoff:
+                  firstBackoff: 50ms
+                  maxBackoff: 500ms
+                  factor: 2
+                  basedOnPreviousValue: false
+          # lb://NOMBRE-LOGICO = Client-Side Service Discovery contra Eureka. El balanceo es
+          # Round Robin (algoritmo por defecto de Spring Cloud LoadBalancer): adecuado mientras
+          # las réplicas de cada servicio tengan hardware equivalente.
+          routes:
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/auth/**
+            - id: claim-service
+              uri: lb://CLAIM-SERVICE
+              predicates:
+                - Path=/claims/**
+            - id: report-service
+              uri: lb://REPORT-SERVICE
+              predicates:
+                - Path=/reports/**
+            - id: matching-service
+              uri: lb://MATCHING-SERVICE
+              predicates:
+                - Path=/matches/**
+            - id: notification-service
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/notifications/**
+
+# Service Registry (cliente): heartbeat cada 10 s; sin latidos durante 30 s Eureka expulsa la
+# instancia. El gateway refresca su copia del registro cada 10 s para dejar de enrutar a nodos caídos.
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.cloud.client.ip-address}:${server.port}
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+  client:
+    registry-fetch-interval-seconds: 10
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+# Rutas que pasan sin token (patrones Ant). Cualquier otra exige un JWT válido.
+gateway:
+  security:
+    public-paths:
+      - /auth/register
+      - /auth/login
