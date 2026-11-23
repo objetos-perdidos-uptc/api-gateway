@@ -42,16 +42,14 @@ spring:
               predicates:
                 - Path=/reports/**
             - id: matching-service
-              uri: lb://MATCHING-SERVICE
+              # Python sin cliente Eureka: usar DNS interno de Docker
+              uri: http://matching-service:8000
               predicates:
                 - Path=/matches/**
-            - id: notification-service
-              uri: lb://NOTIFICATION-SERVICE
-              predicates:
-                - Path=/notifications/**
+              filters:
+                # Público: /matches/xyz -> /api/v1/matches/xyz (interno)
+                - RewritePath=/matches/(?<segment>.*), /api/v1/matches/$\{segment}  
 
-# Service Registry (cliente): heartbeat cada 10 s; sin latidos durante 30 s Eureka expulsa la
-# instancia. El gateway refresca su copia del registro cada 10 s para dejar de enrutar a nodos caídos.
 eureka:
   instance:
     prefer-ip-address: true
